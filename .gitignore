@@ -1,0 +1,28 @@
+# COMPILATION
+build/
+bin/
+obj/
+*.out
+*.exe
+
+
+# VS SHIT
+.vscode/
+.history/
+*.code-workspace
+
+# MATLAB
+*.asv
+*.slxc
+*.mex*
+log.txt
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# External Libraries
+vcpkg/
+vcpkg_installed/
