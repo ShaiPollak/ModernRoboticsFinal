@@ -29,6 +29,9 @@ namespace YouBot{
         Gripper     = 12
     };
 
+    inline constexpr int num_of_joints = 5;
+    inline constexpr int num_of_wheel = 4;
+
     namespace Gripper{
         
         inline constexpr double min_opening_distance = 0.02;
