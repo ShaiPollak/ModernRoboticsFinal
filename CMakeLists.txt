@@ -10,10 +10,12 @@ find_package(Eigen3 REQUIRED)
 
 # הגדרת קבצי המקור (כדי שלא תצטרך לכתוב הכל בשורה אחת ארוכה)
 set(SOURCES
-    src/test_main.cpp
-    src/robot_logic.cpp
+    src/main.cpp
     src/csv_logger.cpp
-    # כאן תוסיף בעתיד את trajectory.cpp ו-feedback_control.cpp
+    src/trajectory_gen.cpp
+    src/robot_runner.cpp
+    src/robot_kinematics.cpp
+    src/robot_controller.cpp
 )
 
 # יצירת קובץ ההרצה
@@ -22,7 +24,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 # הגדרת תיקיות ה-Include
 # ה-PRIVATE אומר שרק הפרויקט הזה משתמש בתיקיות האלו
 target_include_directories(${PROJECT_NAME} PRIVATE 
-    include 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include 
     ${EIGEN3_INCLUDE_DIR}
 )
 

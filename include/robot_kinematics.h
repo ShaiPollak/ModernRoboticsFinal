@@ -1,0 +1,188 @@
+#ifndef ROBOT_LOGIC_H
+#define ROBOT_LOGIC_H
+
+#include <Eigen/Dense>
+#include <vector>
+#include <array>
+#include <memory>
+
+namespace RobotLogic{
+    
+    class RobotKinematics{
+    public:
+
+        /** @brief Constructor for the RobotKinematics class
+          * This constructor initializes the RobotKinematics object with default parameters. It sets up the internal state of the robot, including transformation matrices, Jacobians, and configuration vectors. The constructor prepares the object for subsequent configuration and state updates during mission execution.
+        */
+        RobotKinematics() = default;
+
+        /** @brief Parameterized constructor for the RobotKinematics class
+          * This constructor initializes the RobotKinematics object with specific parameters provided as arguments. It sets up the internal state of the robot based on the given transformation matrices, screw axes, and kinematic parameters. This allows for immediate use of the object with a defined robot configuration.
+          * @param F The F matrix representing the robot's base kinematics
+          * @param VbMappingIndices A vector of indices for mapping Vb to F_ext
+          * @param H_0 The H matrix representing the robot's initial configuration
+          * @param T_sb The transformation matrix from the robot frame to the space frame
+          * @param T_b0 The transformation matrix from the arm base frame to the robot frame
+          * @param M0_e The initial transformation matrix of the end-effector in its home position
+          * @param B_list The list of screw axes for the arm joints in the end-effector frame
+         */
+        RobotKinematics(
+          const Eigen::MatrixXd &F, 
+          const std::vector<int>& VbMappingIndices, 
+          const Eigen::MatrixXd &H_0, 
+          const Eigen::MatrixXd &T_sb_init, 
+          const Eigen::MatrixXd &T_b0, 
+          const Eigen::MatrixXd &M0_e, 
+          const Eigen::MatrixXd &B_list);
+
+        
+        // Setters and Getters for robot parameters
+
+        void setF(const Eigen::MatrixXd& F);
+        Eigen::MatrixXd getF() const noexcept;
+
+        /** @brief Set the extended F matrix based on the provided VbMappingIndices
+          * @param VbMappingIndices A vector of indices for mapping Vb to F_ext
+          */
+        void setFExtWithVbMappingIndices(const std::vector<int>& VbMappingIndices);
+        std::pair<std::vector<int>, Eigen::MatrixXd> getFExt() const noexcept;
+
+        /** @brief Set the initial configuration matrix H0
+          * @param H_0 The initial configuration matrix
+          */
+        void setH0(const Eigen::MatrixXd& H_0);
+        Eigen::MatrixXd getH0() const noexcept;
+
+        /** @brief Set the transformation matrix from the robot frame to the space frame
+          * @param T_sb_init The transformation matrix from the robot frame to the space frame 
+          * at the initial configuration
+          */
+        void setTsb_init(const Eigen::MatrixXd& T_sb_init);
+        Eigen::MatrixXd getRobotLocation_T_sb() const noexcept;
+
+        /** @brief Set the transformation matrix from the arm base frame to the robot frame
+          * @param T_b0 The transformation matrix from the arm base frame to the robot frame
+          */
+        void setTb0(const Eigen::MatrixXd& T_b0);
+        Eigen::MatrixXd getTb0() const noexcept;
+
+        /** @brief Set the initial transformation matrix of the end-effector in its home position
+          * @param M0_e The initial transformation matrix of the end-effector
+          */
+        void setM0e(const Eigen::MatrixXd& M0_e);
+        Eigen::MatrixXd getM0e() const noexcept;
+
+        /** @brief Set the list of screw axes for the arm joints in the end-effector frame
+          * @param B_list The list of screw axes
+          */
+        void setBList(const Eigen::MatrixXd& B_list);
+        Eigen::MatrixXd getBList() const noexcept;
+
+        void setDt(double dt);
+        double getDt() const noexcept;
+
+        void setMaxWheelsVelocity(double vel);
+        double getMaxWheelsVelocity() const noexcept;
+
+        void setMaxJointsVelocity(double vel);
+        double getMaxJointsVelocity() const noexcept;
+
+        
+        // Kinematics and State Update Methods
+
+        /** @brief Compute the next state of the robot given the current configuration and control inputs
+          * @param q_current Current configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          * @param u_controls Control input vector (For our case: size 9: 4 wheel speeds, 5 arm joints)
+          * @return The next configuration vector (size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        Eigen::VectorXd computeNextState(const Eigen::VectorXd &u_controls); //9 vec velocity (4 wheels, 5 joints)
+         /** @brief Update the current configuration of the robot to the next state
+          * @param q_next Next configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        void updateToNextState(const Eigen::VectorXd &q_next);
+
+        /** @brief Update the robot's location based on the current configuration and the next configuration
+          * @param T_sb Current transformation matrix from the robot frame to the space frame
+          * @param q_current Current configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          * @param q_next Next configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        void updateRobotLocation(
+          const Eigen::Matrix4d& T_sb, 
+          const Eigen::VectorXd& q_current, 
+          const Eigen::VectorXd& q_next);
+        /** @brief Update the robot's configuration to the next state based on the current configuration and control inputs
+          * @param q_next Next configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        void updateEndEffectorConfiguration(const Eigen::VectorXd& q);
+        /** @brief Set the initial configuration of the robot
+          * @param q_start Initial configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        void updateQState(const Eigen::VectorXd& q);
+        /** @brief Update the Jacobian matrices based on the current configuration of the robot
+          * @param q_current Current configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        void updateJacobian(const Eigen::VectorXd& q);
+
+        /** @brief Get the current configuration of the robot
+          * @return Current configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        Eigen::VectorXd getCurrentQState() const noexcept;
+        /** @brief Get the current end-effector pose in the space frame
+          * @return Current end-effector transformation matrix in the space frame
+          */
+        Eigen::Matrix4d getCurrentEndEffectorPose() const noexcept;
+        
+        /** @brief Compute the control inputs required to achieve a desired end-effector twist
+          * @param V_t End-effector twist in the space frame (size 6: [vx, vy, vz, wx, wy, wz])
+          * @return Control input vector (size 9: 4 wheel speeds, 5 arm joints)
+          */
+        Eigen::VectorXd computeControlsFromEndEffectorTwist(const Eigen::Vector<double, 6>& V_t);
+
+        /** @brief Print the current configuration of the robot in a human-readable format
+          * @param q Current configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
+          */
+        void printConfiguration(const Eigen::VectorXd& q) const noexcept;
+
+        /** @brief Print the current end-effector pose of the robot in a human-readable format
+          * @param T_current Current end-effector transformation matrix (4x4)
+          * @param T_desired Desired end-effector transformation matrix (4x4)
+          */
+        void printTransformationMatrix(const Eigen::MatrixXd& T_current, const Eigen::MatrixXd& T_desired) const noexcept;
+
+    private:
+
+        // Robot Transformations Mats:
+        Eigen::MatrixXd F_;                              // F Mat (for omnidirectional robot)
+        Eigen::Matrix<double, 6, Eigen::Dynamic> F_ext_; // Extended F Mat (for omnidirectional robot)
+        std::vector<int> VbMappingIndices_;              // Indices for mapping Vb to F_ext
+        Eigen::MatrixXd H_0_;       // H Mat (for omnidirectional robot)
+        Eigen::MatrixXd T_b0_;      // Arm base T.M in {b} (frame) 
+        Eigen::MatrixXd T_sb_init_; // Robot frame T.M in {s} at the initial configuration
+        Eigen::MatrixXd M0_e_;      // Initial Arm Transformation Matrix
+        Eigen::MatrixXd B_list_;    // Initial Joints Screw Axises Lists in {e}
+
+        Eigen::MatrixXd J_base_;    // Current Configuration of robot base Jacobain (F_ in Endeffector frame) in Endeffector frame     
+        Eigen::MatrixXd J_arm_;     // Current Configuration of robot arm Jacobain (B_list_ in Endeffector frame) in Endeffector frame
+        Eigen::MatrixXd J_e_;       // Current Configuration of robot's Jacobain (J_base_ stacked on J_arm_) in Endeffector frame
+        
+        // Current state of the robot
+        Eigen::Matrix4d T_sb_;      // Current Robot location matrix in space frame
+        Eigen::MatrixXd T_0e_;      // Current End-effector transformation matrix in arm base frame
+        Eigen::Matrix4d T_se_;      // Current End-effector transformation matrix in space frame
+        Eigen::VectorXd q_state_;   // Current Configuration of the robot
+
+        int num_of_joints_;
+        int num_of_controlable_wheels_;
+
+        double max_wheels_velocity_ = 12.3;
+        double max_joints_velocity_ = 1.5;
+
+        double dt_ = 0.01; //In sec
+
+        bool near_singularity_ = false;
+
+        // std::unique_ptr<CSVLogger> logger = nullptr;
+    };
+}
+
+#endif

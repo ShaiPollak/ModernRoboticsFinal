@@ -5,6 +5,78 @@
 #include <vector>
 #include <array>
 
+namespace Obj{
+    inline constexpr double l = 0.05;
+    inline constexpr double w = 0.05;
+    inline constexpr double h = 0.05;
+
+    inline Eigen::Vector3d start_pos(){
+        // Starting position of Obj relative to S frame
+        Eigen::Vector3d st_pos;
+        st_pos << 1, 0, 0.025;  //x y z
+        return st_pos;
+    }
+
+    inline Eigen::Matrix3d start_orient(){
+        // Starting Oreintation of Obj relative to S frame
+        Eigen::Matrix3d st_or;
+        st_or << 1, 0, 0,       // Change Accordingly
+                 0, 1, 0,
+                 0, 0, 1;
+        return st_or;
+    }
+
+    inline Eigen::Vector3d end_pos(){
+        // Ending position of Obj relative to S frame
+        Eigen::Vector3d end_pos;
+        end_pos << 0, -1, 0.025; //x y z
+        return end_pos;
+    }
+
+    inline Eigen::Matrix3d target_orient(){
+        // Ending Oreintation of Obj relative to S frame
+        Eigen::Matrix3d trg_or;
+        trg_or << 0, 1, 0,       // Change Accordingly
+                 -1, 0, 0,
+                  0, 0, 1;
+        return trg_or;
+    }
+
+    /** @brief Initial T_sc matrix (Space to Cube) */
+    inline Eigen::Matrix4d T_sc_initial(){
+        Eigen::Matrix4d T_mat = Eigen::Matrix4d::Identity();
+        T_mat.block<3,3>(0,0) = start_orient();
+        T_mat.block<3,1>(0,3) = start_pos(); 
+        return T_mat;
+    }
+
+    /** @brief Target T_sc matrix (Space to Cube) */
+    inline Eigen::Matrix4d T_sc_end() {
+        Eigen::Matrix4d T_mat = Eigen::Matrix4d::Identity();
+        T_mat.block<3,3>(0,0) = target_orient();
+        T_mat.block<3,1>(0,3) = end_pos(); 
+        return T_mat;
+    }
+
+    /** @brief End effector configuration in grasp mode in {c} frame */
+    inline Eigen::Matrix4d T_ce_grasp(){
+        Eigen::Vector3d grasp_loc = {0, 0 ,0};  // CHANGE TO FIT
+        Eigen::Matrix4d T_ce_grasp_mat;
+        T_ce_grasp_mat << 0, 0, 1, grasp_loc[0], // End Effector is 90 deg in y in {c} 
+                          0, 1, 0, grasp_loc[1],
+                         -1, 0, 0, grasp_loc[2],
+                          0, 0, 0, 1;
+        return T_ce_grasp_mat;
+    }
+
+    /** @brief End effector configuration in standoff mode in {c} frame */
+    inline Eigen::Matrix4d T_ce_standoff(){
+        Eigen::Matrix4d T = T_ce_grasp();
+        T(2, 3) += 0.15; // פשוט מוסיפים 15 ס"מ לציר Z של הקוביה
+        return T;
+    }
+} // Obj
+
 namespace YouBot{
     // ENUM class for each joint and his ID
     // ENUM is a STATE class, not float
@@ -109,8 +181,8 @@ namespace YouBot{
         }
 
         /** @brief Fixed offset from chassis frame {b} to arm base {0} */
-        inline Eigen::Matrix<double, 4 ,4> T_b0(){
-            Eigen::Matrix<double, 4, 4> T_b0_mat;
+        inline Eigen::Matrix4d T_b0(){
+            Eigen::Matrix4d T_b0_mat;
             
             T_b0_mat << 1, 0, 0, 0.1662,
                         0, 1, 0, 0,
@@ -118,12 +190,17 @@ namespace YouBot{
                         0, 0, 0, 1;
             return T_b0_mat;
         }
+        
+        /** @brief Mapping from Vb (dphi, dx, dy) to the corresponding indices in the state vector (phi, x, y) */
+        inline std::vector<int> VbMappingIndices(){
+            return {2,3,4}; // Change to match the actual indices of phi, x, y in the state vector if different
+        }
     }
         
     namespace Arm{
         /** @brief End-effector frame {e} relative to arm base {0} at home position. */
-        inline Eigen::Matrix<double, 4, 4> M_0e(){
-            Eigen::Matrix<double, 4, 4> M_0e_mat;
+        inline Eigen::Matrix4d M_0e(){
+            Eigen::Matrix4d M_0e_mat;
 
             M_0e_mat << 1, 0, 0, 0.033,
                         0, 1, 0, 0,
@@ -147,47 +224,40 @@ namespace YouBot{
 
         return Blist_mat;
         }
+
+       
+    }
+
+    namespace Task{
+
+         /** @brief starting end effector {e} frame in {s}. */
+        inline Eigen::Matrix4d T_se_start(double x, double y, double phi){
+            return (Frame::T_sb(x, y,phi) * Frame::T_b0() * Arm::M_0e());
+        }
+
+        /** @brief Starting and Ending Conf for each segment */
+        inline Eigen::Matrix4d T_se_StandoffPickUp(){
+            return Obj::T_sc_initial() * Obj::T_ce_standoff();
+        }
+
+        /** @brief Starting and Ending Conf for each segment */
+        inline Eigen::Matrix4d T_se_GraspPickUp(){
+            return Obj::T_sc_initial() * Obj::T_ce_grasp();
+        }
+
+        /** @brief Starting and Ending Conf for each segment */
+        inline Eigen::Matrix4d T_se_StandoffLayoff(){
+            return Obj::T_sc_end() * Obj::T_ce_standoff();
+        }
+
+        /** @brief Starting and Ending Conf for each segment */
+        inline Eigen::Matrix4d T_se_GraspLayoff(){
+            return Obj::T_sc_end() * Obj::T_ce_grasp();
+        }
     }
 }
 
-namespace Obj{
-    inline constexpr double l = 0.05;
-    inline constexpr double w = 0.05;
-    inline constexpr double h = 0.05;
 
-    inline Eigen::Vector3d start_pos(){
-        // Starting position of Obj relative to S frame
-        Eigen::Vector3d st_pos;
-        st_pos << 1, 0, 0.025;  //x y z
-        return st_pos;
-    }
-
-    inline Eigen::Vector3d end_pos(){
-        // Ending position of Obj relative to S frame
-        Eigen::Vector3d end_pos;
-        end_pos << 0, -1, 0.025; //x y z
-        return end_pos;
-    }
-
-    /** @brief Initial T_sc matrix (Space to Cube) */
-    inline Eigen::Matrix4d T_sc_initial(){
-        Eigen::Vector3d st_pos = start_pos();
-        Eigen::Matrix4d T_mat = Eigen::Matrix4d::Identity();
-        T_mat.block<3,1>(0,3) = st_pos; 
-        return T_mat;
-    }
-
-    /** @brief Target T_sc matrix (Space to Cube) */
-    inline Eigen::Matrix4d T_sc_end() {
-        Eigen::Vector3d e_pos = end_pos();
-        Eigen::Matrix4d T_sc_e_mat;
-        T_sc_e_mat <<  0, 1, 0, e_pos[0],
-                      -1, 0, 0, e_pos[1],
-                       0, 0, 1, e_pos[2],
-                       0, 0, 0, 1;
-        return T_sc_e_mat;
-    }
-}
 
 
 #endif
