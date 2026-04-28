@@ -81,11 +81,35 @@ namespace RobotLogic{
         void setDt(double dt);
         double getDt() const noexcept;
 
-        void setMaxWheelsVelocity(double vel);
-        double getMaxWheelsVelocity() const noexcept;
+        /** @brief Set the maximum velocity for the wheels
+          * @param vel Maximum wheel velocity in appropriate units (e.g., radians per second)
+          * @param wheel_id Optional parameter to set max velocity for a specific wheel (if -1, sets for all wheels)
+          */
+        void setMaxWheelsVelocity(double vel, int wheel_id = -1);
+        /** @brief Get the maximum velocity for the wheels
+          * @param wheel_id Optional parameter to get max velocity for a specific wheel (if -1, returns max velocity for all wheels)
+          * @return Maximum wheel velocity in appropriate units (e.g., radians per second)
+          */
+        double getMaxWheelsVelocity(int wheel_id = -1) const;
 
-        void setMaxJointsVelocity(double vel);
-        double getMaxJointsVelocity() const noexcept;
+        /** @brief Set the maximum velocity for the arm joints
+          * @param vel Maximum joint velocity in appropriate units (e.g., radians per second)
+          * @param joint_id Optional parameter to set max velocity for a specific joint (if -1, sets for all joints)
+          */
+        void setMaxJointsVelocity(double vel, int joint_id = -1);
+        /** @brief Get the maximum velocity for the arm joints
+          * @param joint_id Optional parameter to get max velocity for a specific joint (if -1, returns max velocity for all joints)
+          * @return Maximum joint velocity in appropriate units (e.g., radians per second)
+          */
+        double getMaxJointsVelocity(int joint_id = -1) const;
+      
+        /** @brief Set the position limits for the arm joints
+          * @param min_pos A vector of minimum position limits for each joint
+          * @param max_pos A vector of maximum position limits for each joint
+          */
+        void setJointPositionLimits(const std::vector<double>& min_pos, const std::vector<double>& max_pos);
+        double getJointMinPosition(int joint_id) const;
+        double getJointMaxPosition(int joint_id) const;
 
         
         // Kinematics and State Update Methods
@@ -132,7 +156,8 @@ namespace RobotLogic{
           */
         Eigen::Matrix4d getCurrentEndEffectorPose() const noexcept;
         
-        /** @brief Compute the control inputs required to achieve a desired end-effector twist
+        /** @brief Compute the control inputs required to achieve a desired end-effector twist,
+          * taking into account the current Jacobian and applying velocity limits to ensure safe operation.
           * @param V_t End-effector twist in the space frame (size 6: [vx, vy, vz, wx, wy, wz])
           * @return Control input vector (size 9: 4 wheel speeds, 5 arm joints)
           */
@@ -148,6 +173,12 @@ namespace RobotLogic{
           * @param T_desired Desired end-effector transformation matrix (4x4)
           */
         void printTransformationMatrix(const Eigen::MatrixXd& T_current, const Eigen::MatrixXd& T_desired) const noexcept;
+        /** @brief Print the current Jacobian matrix of the robot
+          */
+        void printJacobian() const noexcept;
+        /** @brief Alert if the robot is near a singular configuration
+          */
+        void alertIfNearSingularity() const noexcept;
 
     private:
 
@@ -173,11 +204,21 @@ namespace RobotLogic{
 
         int num_of_joints_;
         int num_of_controlable_wheels_;
+        
+        struct JointLimits {
+            // Arm Position Limits (size: num_of_joints)
+            std::vector<double> min_pos;
+            std::vector<double> max_pos;
 
-        double max_wheels_velocity_ = 12.3;
-        double max_joints_velocity_ = 1.5;
+            // Velocity Limits (size: num_of_joints + num_of_wheels)
+            std::vector<double> max_vel;
 
-        double dt_ = 0.01; //In sec
+            // Soft limit buffer (e.g., 0.08 rad) 
+            // Used to start slowing down BEFORE hitting the hard stop
+            double buffer = 0.08; 
+        } joint_limits_;
+
+        double dt_ = 0.01; //In sec, default value, can be updated by setter
 
         bool near_singularity_ = false;
 

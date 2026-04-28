@@ -66,12 +66,18 @@ namespace Obj{
                           0, 1, 0, grasp_loc[1],
                          -1, 0, 0, grasp_loc[2],
                           0, 0, 0, 1;
+
+        // Grasp in cube in 135 degrees in y
+        Eigen::Matrix3d orient_correction = Eigen::AngleAxisd(3*M_PI/4, Eigen::Vector3d::UnitY()).toRotationMatrix();
+        T_ce_grasp_mat.block<3,3>(0,0) = orient_correction;
+
         return T_ce_grasp_mat;
     }
 
     /** @brief End effector configuration in standoff mode in {c} frame */
     inline Eigen::Matrix4d T_ce_standoff(){
         Eigen::Matrix4d T = T_ce_grasp();
+        //T.block<3,3>(0,0) *= Eigen::AngleAxisd(-M_PI/4, Eigen::Vector3d::UnitY()).toRotationMatrix(); 
         T(2, 3) += 0.15; // פשוט מוסיפים 15 ס"מ לציר Z של הקוביה
         return T;
     }
@@ -126,6 +132,8 @@ namespace YouBot{
          M_PI /  4.0,
         -M_PI /  4.0
         };
+
+    inline constexpr double max_velocity = 12.3; // Max wheel velocity in rad/s
     }
 
     namespace Frame{
@@ -225,7 +233,29 @@ namespace YouBot{
         return Blist_mat;
         }
 
-       
+        /** @brief Joint limits for the 5 arm joints. */
+        // Define the struct for the type
+        struct JointLimitData {
+            // Put the M_PI math INSIDE the braces for each item
+            const std::vector<double> min_pos = {
+                -3.0 * M_PI, 
+                -M_PI * (2.0 / 3.0), 
+                -M_PI / 3.0, 
+                -M_PI / 3.0, 
+                -3.0 * M_PI
+            };
+
+            const std::vector<double> max_pos = {
+                3.0 * M_PI, 
+                M_PI * (2.0 / 3.0), 
+                M_PI / 3.0, 
+                M_PI / 3.0, 
+                3.0 * M_PI
+            };
+        };
+
+        inline const JointLimitData joint_limits;
+        inline constexpr double max_vel = 1.0; // Max joint velocity in rad/s
     }
 
     namespace Task{

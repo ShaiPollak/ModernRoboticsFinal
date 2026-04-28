@@ -47,6 +47,7 @@ void RobotLogic::TrajectoryGen::setTrjTime(double Tf){
         throw std::invalid_argument("Time for trajectory segment is too short.");
     }
     tf_ = Tf;
+    total_steps_ = static_cast<int>((tf_ / dt_) * k_) + 1;
 }
 double RobotLogic::TrajectoryGen::getTrjTime() const noexcept {
     return tf_;
@@ -66,7 +67,10 @@ void RobotLogic::TrajectoryGen::setTrjType(TrajectoryType type){
 RobotLogic::TrajectoryType RobotLogic::TrajectoryGen::getTrjType() const noexcept{
     return traj_type_;
 }
-
+int RobotLogic::TrajectoryGen::getTrjSteps() const noexcept {
+    // Calculate total steps based on tf and dt and k (k steps per dt)
+    return total_steps_;
+}
 // Setters and getters for static members
 
 void RobotLogic::TrajectoryGen::setK(int k) {

@@ -448,6 +448,26 @@ namespace mr {
         return svd.matrixV() * singularValuesInv * svd.matrixU().adjoint();
     }
 
+    /** @brief Computes the damped pseudo-inverse of a matrix using singular value decomposition.
+     * * This is used to handle near-singular configurations in inverse kinematics by adding a damping term to the singular values.
+     * * We define a cost function: L = ||A * x - b||^2 + lambda^2 * ||x||^2, where lambda is the damping factor.
+     * * Then we take the derivative with respect to x and set it to zero:
+     * * (J^T * J + lambda^2 * I) * x = J^T * b
+     * * Then x = (J^T * J + lambda^2 * I)^-1 * J^T * b, which is the damped pseudo-inverse solution.
+     * * We return only the damped pseudo-inverse matrix: J^T * (J * J^T + lambda^2 * I)^-1 (which is more efficient to compute).
+     * * @param A The matrix for which to compute the damped pseudo-inverse.
+     * @param lambda The damping factor (default is 0.1). Higher values increase stability but reduce accuracy near singularities.
+     * @return The damped pseudo-inverse of the matrix.
+     */
+    inline Eigen::MatrixXd dampedPseudoInverse(const Eigen::MatrixXd& A, double lambda=0.1) {
+        // Formula: J_damped_inv = J^T * (J * J^T + lambda^2 * I)^-1
+        Eigen::MatrixXd AAT = A * A.transpose();
+        Eigen::MatrixXd damping = (lambda * lambda) * Eigen::MatrixXd::Identity(A.rows(), A.rows());
+        
+        // Use LDLT for numerical stability and speed
+        return A.transpose() * (AAT + damping).ldlt().solve(Eigen::MatrixXd::Identity(A.rows(), A.rows()));
+    }
+
     
 
     /** @brief Tests if a transformation matrix has no rotation.

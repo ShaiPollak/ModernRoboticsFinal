@@ -39,6 +39,7 @@ public:
     int getGripperState() const noexcept;
     TrajectoryType getTrjType() const noexcept;
     void setTrjType(TrajectoryType type);
+    int getTrjSteps() const noexcept;
 
     static void setK(int k);
     static int getK() noexcept;
@@ -76,6 +77,7 @@ public:
 private:
     std::string segment_name_;              // Name of the trajectory segment (e.g., "pick", "place")
     double tf_;                             // Total time of trajectory segment
+    double total_steps_;                    // Total number of steps in the trajectory (N = floor(Tf/dt) + 1)
     int gripper_state_;                     // 0 is open 1 is closed
     TrajectoryType traj_type_;              // Type of trajectory interpolation (Cartesian or Screw)
     

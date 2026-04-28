@@ -1,0 +1,13 @@
+Starting Robot Mission...
+Robot Mission Configuration Complete. Setting up mission segments...
+Segment 1: Home to Standoff
+Segment 2: Standoff to Grasp
+Segment 3: Close Gripper
+Segment 4: Grasp to Standoff (Cube Pick Up)
+Segment 5: Standoff to Layoff (Driving to Layoff Location)
+Segment 6: Lower the cube
+Segment 7: Open Gripper
+Segment 8: Retreat to Standoff
+All mission segments added. Starting execution...
+Robot Mission Completed.
+Writing results to file...

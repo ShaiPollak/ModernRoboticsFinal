@@ -55,6 +55,14 @@ public:
           */
         Eigen::Vector<double, 6> calNextTwistInTaskSpace(const Eigen::Matrix4d& X, const Eigen::Matrix4d& Xd, const Eigen::Vector<double, 6>& V_d);
         
+        /** @brief Get the integrated error twist in task space over time
+          * @return Integrated error twist in task space (6x1 vector)
+          */
+        Eigen::Vector<double, 6> getXErrIntegration() const noexcept;
+        /** @brief Get the last computed error twist in task space
+          * @return Last computed error twist in task space (6x1 vector)
+          */
+        Eigen::Vector<double, 6> getCurrentXErr() const noexcept;
     private:
 
         double dt_;
@@ -62,6 +70,7 @@ public:
         Eigen::Matrix<double, 6, 6> Ki_;
         Eigen::Matrix<double, 6, 6> Kd_;
 
+        Eigen::Vector<double, 6> last_X_err_;
         Eigen::Vector<double, 6> X_err_integration_;
             
         };

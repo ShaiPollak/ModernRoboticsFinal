@@ -11,7 +11,7 @@ find_package(Eigen3 REQUIRED)
 # הגדרת קבצי המקור (כדי שלא תצטרך לכתוב הכל בשורה אחת ארוכה)
 set(SOURCES
     src/main.cpp
-    src/csv_logger.cpp
+    src/robot_logger.cpp
     src/trajectory_gen.cpp
     src/robot_runner.cpp
     src/robot_kinematics.cpp

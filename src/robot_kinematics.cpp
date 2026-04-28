@@ -137,6 +137,10 @@ Eigen::MatrixXd RobotLogic::RobotKinematics::getM0e() const noexcept {
 void RobotLogic::RobotKinematics::setBList(const Eigen::MatrixXd& B_list) {
     this->B_list_ = B_list;
     this->num_of_joints_ = static_cast<int>(B_list.cols());
+    this->joint_limits_.max_vel.resize(num_of_joints_ + num_of_controlable_wheels_); // Resize velocity limits vector to match total DOFs
+    this->joint_limits_.min_pos.resize(num_of_joints_); // Resize position limits vector to match number of joints
+    this->joint_limits_.max_pos.resize(num_of_joints_); // Resize position limits vector to match number of joints
+
 }
  
 /** @brief Set the time step for integration
@@ -153,26 +157,70 @@ double RobotLogic::RobotKinematics::getDt() const noexcept
 
 /** @brief Set the maximum velocity for the wheels
   * @param vel Maximum wheel velocity in appropriate units (e.g., radians per second)
- */
-void RobotLogic::RobotKinematics::setMaxWheelsVelocity(double vel)
+  * @param wheel_id Optional parameter to set max velocity for a specific wheel (if -1, sets for all wheels)
+  */
+void RobotLogic::RobotKinematics::setMaxWheelsVelocity(double vel, int wheel_id)
 {
-    this->max_wheels_velocity_ = vel;
+    if (wheel_id == -1) {
+        std::fill(this->joint_limits_.max_vel.begin(), this->joint_limits_.max_vel.begin() + num_of_controlable_wheels_, vel);
+    } else {
+        if (wheel_id > 0 && wheel_id <= num_of_controlable_wheels_) {
+            this->joint_limits_.max_vel[wheel_id-1] = vel;
+        } else {
+            throw std::out_of_range("Wheel ID is out of valid range");
+        }
+    }
 }
-double RobotLogic::RobotKinematics::getMaxWheelsVelocity() const noexcept
+double RobotLogic::RobotKinematics::getMaxWheelsVelocity(int wheel_id) const
 {
-    return this->max_wheels_velocity_;
+    if (wheel_id > 0 && wheel_id <= num_of_controlable_wheels_) {
+        return this->joint_limits_.max_vel[wheel_id-1];
+    } else {
+        throw std::out_of_range("Wheel ID is out of valid range");
+    }
 }
 
-/** @brief Set the maximum velocity for the arm joints
-  * @param vel Maximum joint velocity in appropriate units (e.g., radians per second)
- */
-void RobotLogic::RobotKinematics::setMaxJointsVelocity(double vel)
+void RobotLogic::RobotKinematics::setMaxJointsVelocity(double vel, int joint_id)
 {
-    max_joints_velocity_ = vel;
+    if (joint_id == -1) {
+        std::fill(this->joint_limits_.max_vel.begin() + num_of_controlable_wheels_, this->joint_limits_.max_vel.end(), vel);
+    } else {
+        if (joint_id > 0 && joint_id <= num_of_joints_) {
+            this->joint_limits_.max_vel[num_of_controlable_wheels_ + joint_id - 1] = vel;
+        } else {
+            throw std::out_of_range("Joint ID is out of valid range");
+        }
+    }
 }
-double RobotLogic::RobotKinematics::getMaxJointsVelocity() const noexcept
+double RobotLogic::RobotKinematics::getMaxJointsVelocity(int joint_id) const
 {
-    return max_joints_velocity_;
+    if (joint_id > 0 && joint_id <= num_of_joints_) {
+        return this->joint_limits_.max_vel[num_of_controlable_wheels_ + joint_id - 1];
+    } else {
+        throw std::out_of_range("Joint ID is out of valid range");
+    }
+}
+
+void RobotLogic::RobotKinematics::setJointPositionLimits(const std::vector<double>& min_pos, const std::vector<double>& max_pos) {
+    if (min_pos.size() != num_of_joints_ || max_pos.size() != num_of_joints_) {
+        throw std::invalid_argument("Size of position limits must match the number of joints");
+    }
+    this->joint_limits_.min_pos = min_pos;
+    this->joint_limits_.max_pos = max_pos;
+}
+double RobotLogic::RobotKinematics::getJointMinPosition(int joint_id) const {
+    if (joint_id > 0 && joint_id <= num_of_joints_) {
+        return this->joint_limits_.min_pos[joint_id - 1];
+    } else {
+        throw std::out_of_range("Joint ID is out of valid range");
+    }
+}
+double RobotLogic::RobotKinematics::getJointMaxPosition(int joint_id) const {
+    if (joint_id > 0 && joint_id <= num_of_joints_) {
+        return this->joint_limits_.max_pos[joint_id - 1];
+    } else {
+        throw std::out_of_range("Joint ID is out of valid range");
+    }
 }
 
 
@@ -206,9 +254,9 @@ void RobotLogic::RobotKinematics::updateEndEffectorConfiguration(const Eigen::Ve
   * param q_current Current configuration vector (For our case: size 12: 3 chassis, 5 arm joints, 4 wheels)
   */
 void RobotLogic::RobotKinematics::updateJacobian(const Eigen::VectorXd& q) {
-    // 1. Update Arm FK first so T_be is current!
+    // 1. Update Arm FK first so T_be is current! (only if EndEffectorConfiguration hasn't been updated yet)
     Eigen::VectorXd arm_thetas = q.segment(3, num_of_joints_); // joints 3,4,5,6,7
-    this->T_0e_ = mr::kinematics::FKinBody(M0_e_, B_list_, arm_thetas);
+    //T_0e_ = mr::kinematics::FKinBody(M0_e_, B_list_, arm_thetas);
     
     // 2. Compute the current Base-to-End-Effector Transform
     Eigen::Matrix4d T_be = T_b0_ * T_0e_;
@@ -227,7 +275,7 @@ void RobotLogic::RobotKinematics::updateJacobian(const Eigen::VectorXd& q) {
     J_e_ = mr::kinematics::StackJacobians(J_base_, J_arm_);
     
     // DEBUG PRINT: This will tell you exactly what the dimensions are before the crash
-    std::cout << "Jacobian Updated. Size: " << J_e_.rows() << "x" << J_e_.cols() << std::endl;
+    //std::cout << "Jacobian Updated. Size: " << J_e_.rows() << "x" << J_e_.cols() << std::endl;
 }
 
 /** @brief Update the current configuration of the robot to the next state
@@ -314,7 +362,8 @@ Eigen::VectorXd RobotLogic::RobotKinematics::computeNextState(const Eigen::Vecto
     return q_next;  
 }
 
-/** @brief Compute the control inputs required to achieve a desired end-effector twist
+/** @brief Compute the control inputs required to achieve a desired end-effector twist,
+  * taking into account the current Jacobian and applying velocity limits to ensure safe operation.
   * @param V_t End-effector twist in the space frame (size 6: [vx, vy, vz, wx, wy, wz])
   * @return Control input vector (size 9: 4 wheel speeds, 5 arm joints)
   */
@@ -328,17 +377,59 @@ Eigen::VectorXd RobotLogic::RobotKinematics::computeControlsFromEndEffectorTwist
                   << ") != V_t size (6). Jacobian update failed!" << std::endl;
     }
 
-    // Compute the 9x6 pseudoinverse
-    Eigen::MatrixXd J_pinv = mr::pseudoInverse(J_e_);
+    // Compute the 9x6 DAMPED PseudoInverse to treat near-singular configurations more gracefully.
+    Eigen::MatrixXd J_e_inv = mr::dampedPseudoInverse(J_e_, 0.1); // You can adjust the damping factor as needed
 
-    // Check inner dimension: J_pinv.cols() must equal V_t.rows() (which is 6)
-    if (J_pinv.cols() != V_t.size()) {
-        std::cerr << "Dimension Mismatch: J_pinv cols: " << J_pinv.cols() 
+    // Check inner dimension: J_e_inv.cols() must equal V_t.rows() (which is 6)
+    if (J_e_inv.cols() != V_t.size()) {
+        std::cerr << "Dimension Mismatch: J_e_inv cols: " << J_e_inv.cols() 
                   << ", V_t size: " << V_t.size() << std::endl;
     }
 
-    return J_pinv * V_t; // This returns a Vector of size 9
+    Eigen::VectorXd controls = J_e_inv * V_t; // This returns a Vector of size 9
+    
+    // Apply velocity limits to the computed controls:
+
+    // 1. Wheel Velocity Limits
+    for (int i = 0; i < num_of_controlable_wheels_; ++i) {
+        controls(i) = std::clamp(controls(i), -getMaxWheelsVelocity(i+1), getMaxWheelsVelocity(i+1));
+    }
+
+    // 2. Arm Joint Limits (Position and Velocity)
+    for (int i = 0; i < num_of_joints_; ++i) {
+        int q_idx = 3 + i; // Offset for chassis phi, x, y
+        int ctrl_idx = num_of_controlable_wheels_ + i; // Index in the controls vector
+        
+        double current_pos = q_state_(q_idx);
+        double vel = controls(ctrl_idx);
+
+        // --- Velocity Clamping ---
+        vel = std::clamp(vel, -getMaxJointsVelocity(i+1), getMaxJointsVelocity(i+1));
+
+        // --- Position Limit Handling with Buffer ---
+        // buffer is a small value like 0.05 rad
+        double upper_bound = getJointMaxPosition(i+1) - joint_limits_.buffer;
+        double lower_bound = getJointMinPosition(i+1) + joint_limits_.buffer;
+
+        // Near Max Limit and moving UP - we want to slow down as we approach the hard stop to avoid overshooting
+        if (current_pos > upper_bound && vel > 0) {
+            // Scale velocity down as we approach the hard stop
+            double dist = getJointMaxPosition(i+1) - current_pos;
+            vel = std::min(vel, dist / dt_); 
+        } 
+        // Near Min Limit and moving DOWN - we want to slow down as we approach the hard stop to avoid overshooting
+        else if (current_pos < lower_bound && vel < 0) {
+            double dist = current_pos - getJointMinPosition(i+1);
+            vel = std::max(vel, -dist / dt_);
+        }
+
+        controls(ctrl_idx) = vel;
+    }
+    
+    return controls;
 }
+
+
 
 
 // --------------------------------------Utility Methods--------------------------------------
@@ -383,4 +474,16 @@ void RobotLogic::RobotKinematics::printTransformationMatrix(const Eigen::MatrixX
     std::cout << "\n[Transformation Matrix]" << std::endl;
     std::cout << "Current:\n" << T_current << std::endl;
     std::cout << "Desired:\n" << T_desired << std::endl;
+}
+
+void RobotLogic::RobotKinematics::printJacobian() const noexcept {
+    std::cout << "\n[Current Jacobian J_e]" << std::endl;
+    std::cout << J_e_ << std::endl;
+}
+
+void RobotLogic::RobotKinematics::alertIfNearSingularity() const noexcept {
+    if (near_singularity_) {
+        std::cerr << "WARNING: Robot is near a singular configuration! Control inputs may be unreliable." << std::endl;
+        printJacobian();
+    }
 }

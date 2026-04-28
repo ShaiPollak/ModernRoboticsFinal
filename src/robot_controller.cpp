@@ -91,13 +91,14 @@ Eigen::Vector<double, 6> RobotLogic::RobotControl::feedbackControl(
     Eigen::Matrix4d error_matrix = mr::MatrixLog6(T_diff);
     
     // Log to extract the Error Twist
-    Eigen::Vector<double, 6> X_err = mr::Se3ToVec(mr::MatrixLog6(T_diff));
+    last_X_err_ = mr::Se3ToVec(mr::MatrixLog6(T_diff));
 
     // Integration
-    X_err_integration_ += X_err * dt_;
+    X_err_integration_ += last_X_err_ * dt_;
+    
 
     // Kp*X_err + Ki*(integral(X_err) from 0 to t)
-    return Kp_*X_err + Ki_*X_err_integration_;
+    return Kp_*last_X_err_ + Ki_*X_err_integration_;
 }
 
 Eigen::Vector<double, 6> RobotLogic::RobotControl::calNextTwistInTaskSpace(
@@ -106,4 +107,14 @@ Eigen::Vector<double, 6> RobotLogic::RobotControl::calNextTwistInTaskSpace(
     const Eigen::Vector<double, 6>& V_d)
 {
     return feedForwardControl(X, Xd, V_d) + feedbackControl(X, Xd);
+}
+
+Eigen::Vector<double, 6> RobotLogic::RobotControl::getXErrIntegration() const noexcept 
+{
+    return X_err_integration_;
+}
+
+Eigen::Vector<double, 6> RobotLogic::RobotControl::getCurrentXErr() const noexcept 
+{
+    return last_X_err_;
 }
